@@ -38,7 +38,13 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<AuthState>(
+      // StreamBuilder listens to Supabase authentication state changes (login, logout, token refresh).
+      // It rebuilds the UI automatically whenever the auth state changes, ensuring real-time updates.
+      // After detecting login, we fetch the user role from the database to navigate to the correct home screen.
       stream: Supabase.instance.client.auth.onAuthStateChange,
+      //context — the build context, used to access theme, size, etc.
+      //snapshot — an object containing the latest data or error from the stream, plus the connection status.
+      //The builder is a callback function that tells Flutter how to build the UI based on the current state of the stream.
       builder: (context, snapshot) {
         // Check current session first
         final currentSession = Supabase.instance.client.auth.currentSession;
@@ -78,6 +84,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
           if (session != null) {
             // print('User is logged in via stream with ID: ${session.user.id}');
             // User is logged in, check their role and navigate accordingly
+            // FutureBuilder waits for the asynchronous call to fetch the user role from the database.
+            // It rebuilds the UI once the role data is received to navigate the user to the correct page.
+
             return FutureBuilder<Map<String, dynamic>?>(
               future: _getUserRole(session.user.id),
               builder: (context, roleSnapshot) {
@@ -111,6 +120,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
       },
     );
   }
+  // We first check if the async operation returned any data (hasData).
+  // Then we ensure the data is not null or empty, meaning it's valid.
+  // If either check fails, we treat it as missing role info and show the login page.
 
   Future<Map<String, dynamic>?> _getUserRole(String userId) async {
     try {

@@ -12,7 +12,8 @@ class ProviderHome extends StatefulWidget {
   State<ProviderHome> createState() => _ProviderHomeState();
 }
 
-class _ProviderHomeState extends State<ProviderHome> {
+class _ProviderHomeState extends State<ProviderHome>
+    with WidgetsBindingObserver {
   int _selectedIndex = 0;
   final List<Widget> _pages = [
     const ProviderAvailableJobsPage(),
@@ -23,18 +24,54 @@ class _ProviderHomeState extends State<ProviderHome> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _startLocationTracking();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    switch (state) {
+      case AppLifecycleState.resumed:
+        // App came back to foreground - restart location tracking
+        print('App resumed - restarting location tracking');
+        _startLocationTracking();
+        break;
+      case AppLifecycleState.paused:
+        // App went to background - optionally pause tracking
+        print('App paused - location tracking continues in background');
+        break;
+      case AppLifecycleState.inactive:
+        // App is inactive (e.g., phone call, notification panel)
+        print('App inactive');
+        break;
+      case AppLifecycleState.detached:
+        // App is detached
+        print('App detached');
+        break;
+      case AppLifecycleState.hidden:
+        // App is hidden
+        print('App hidden');
+        break;
+    }
   }
 
   void _startLocationTracking() async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user != null) {
+      // Stop existing tracking before starting new one
+      if (_locationTracker.isTracking) {
+        _locationTracker.stopTracking();
+      }
       _locationTracker.startTracking(user.id);
+      print('Location tracking started for provider: ${user.id}');
     }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _locationTracker.stopTracking();
     super.dispose();
   }
@@ -141,23 +178,30 @@ class _ProviderAvailableJobsPageState extends State<ProviderAvailableJobsPage> {
       final createdAt = DateTime.parse(job['created_at']);
       final minutesSinceCreation = now.difference(createdAt).inMinutes;
 
-      // Determine allowed distance based on phase
-      double allowedDistance;
+      // Determine allowed distance range based on phase
+      double minDistance = 0;
+      double maxDistance;
+
       if (minutesSinceCreation < 1) {
-        allowedDistance = 80; // meters
+        maxDistance = 80; // 0-80 meters
       } else if (minutesSinceCreation < 2) {
-        allowedDistance = 700; // meters
+        minDistance = 81;
+        maxDistance = 250; // 81-700 meters
       } else if (minutesSinceCreation < 3) {
-        allowedDistance = 1100; // meters
+        minDistance = 251;
+        maxDistance = 450; // 701-1100 meters
       } else if (minutesSinceCreation < 4) {
-        allowedDistance = 1260; // meters
+        minDistance = 451;
+        maxDistance = 1260; // 1101-1260 meters
       } else if (minutesSinceCreation < 5) {
-        allowedDistance = 1300; // meters
+        minDistance = 1261;
+        maxDistance = 1300; // 1261-1300 meters
       } else {
-        allowedDistance = double.infinity; // public phase
+        minDistance = 1301;
+        maxDistance = double.infinity; // 1301+ meters (public phase)
       }
 
-      if (distance <= allowedDistance) {
+      if (distance >= minDistance && distance <= maxDistance) {
         visibleJobs.add(job);
       }
     }

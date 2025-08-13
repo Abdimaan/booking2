@@ -1,11 +1,21 @@
 import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/material.dart';
 
 class LocationService {
-  static Future<bool> requestLocationPermission() async {
+  static Future<bool> requestLocationPermission(BuildContext context) async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      return false;
+      // Show popup dialog when location services are disabled
+      bool shouldContinue = await _showLocationServiceDialog(context);
+      if (!shouldContinue) {
+        return false;
+      }
+      // Check again after user might have enabled location services
+      serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        return false;
+      }
     }
 
     LocationPermission permission = await Geolocator.requestPermission();
@@ -13,9 +23,9 @@ class LocationService {
            permission == LocationPermission.always;
   }
 
-  static Future<Position?> getCurrentLocation() async {
+  static Future<Position?> getCurrentLocation(BuildContext context) async {
     try {
-      bool hasPermission = await requestLocationPermission();
+      bool hasPermission = await requestLocationPermission(context);
       if (!hasPermission) {
         return null;
       }
@@ -84,5 +94,35 @@ class LocationService {
 
   static double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
     return Geolocator.distanceBetween(lat1, lon1, lat2, lon2);
+  }
+
+  static Future<bool> _showLocationServiceDialog(BuildContext context) async {
+    return await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Location Service Disabled'),
+          content: const Text(
+            'Please enable your location service to continue.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop(false);
+              },
+            ),
+            TextButton(
+              child: const Text('Open Settings'),
+              onPressed: () async {
+                Navigator.of(context).pop(true);
+                await Geolocator.openLocationSettings();
+              },
+            ),
+          ],
+        );
+      },
+    ) ?? false;
   }
 } 

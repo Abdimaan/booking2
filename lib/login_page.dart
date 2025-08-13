@@ -21,7 +21,7 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _requestLocationAndSave(String userId) async {
     try {
       // Request location permission and get current location
-      Position? position = await LocationService.getCurrentLocation();
+      Position? position = await LocationService.getCurrentLocation(context);
 
       if (position != null) {
         // Save location to database
